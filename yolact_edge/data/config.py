@@ -171,12 +171,13 @@ dataset_base = Config({
 })
 overall_annotations_dataset = dataset_base.copy({
     'name': 'overall_annotations_norway',
-    'train_images': '/home/saul/Projects/berry_segmentation/data/OVERALL_ANNOTATION/data',
-    'train_info': '/home/saul/Projects/berry_segmentation/data/OVERALL_ANNOTATION/train_3cat.json',
-    'valid_images': '/home/saul/Projects/berry_segmentation/data/OVERALL_ANNOTATION/data',
-    'valid_info': '/home/saul/Projects/berry_segmentation/data/OVERALL_ANNOTATION/test_3cat.json',
+    'train_images': '/datasets/OVERALL_ANNOTATION/',
+    'train_info': '/datasets/OVERALL_ANNOTATION/train_3cat.json',
+    'valid_images': '/datasets/OVERALL_ANNOTATION/',
+    'valid_info': '/datasets/OVERALL_ANNOTATION/test_3cat.json',
     'has_gt': True,
-    'label_map': OVERALL_ANNOTATION_CLASSES
+    'label_map': OVERALL_LABEL_MAP,
+    'class_names': OVERALL_ANNOTATION_CLASSES
 })
 coco2014_dataset = dataset_base.copy({
     'name': 'COCO 2014',
@@ -819,6 +820,7 @@ yolact_edge_config = yolact_base_config.copy({
 
 overall_annotation_config = yolact_edge_config.copy({
     'name': 'overall_annotation',
+    'max_size':200,
 
     # Dataset stuff
     'dataset': overall_annotations_dataset,
