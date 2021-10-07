@@ -27,7 +27,8 @@ COLORS = ((244,  67,  54),
 # These are in BGR and are for ImageNet
 MEANS = (103.94, 116.78, 123.68)
 STD   = (57.38, 57.12, 58.40)
-
+OVERALL_ANNOTATION_CLASSES=('ripe','unripe','pink')
+OVERALL_ANNOTATION_LABEL_MAP={0: 1, 1: 2, 2: 3}
 COCO_CLASSES = ('person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
                 'train', 'truck', 'boat', 'traffic light', 'fire hydrant',
                 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog',
@@ -119,6 +120,7 @@ class Config(object):
         Note: new_config_dict can also be a config object.
         """
         if isinstance(new_config_dict, Config):
+          
             new_config_dict = vars(new_config_dict)
 
         for key, val in new_config_dict.items():
@@ -168,6 +170,58 @@ dataset_base = Config({
     # Joint training
     'joint': None
 })
+debug_dataset = dataset_base.copy({
+    'name':'debug_dataset',
+    'train_images': '/home/appuser/datasets/OVERALL_ANNOTATION_SMALL',
+    'train_info': '/home/appuser/datasets/OVERALL_ANNOTATION_SMALL/coco.json',
+    'valid_images': '/home/appuser/datasets/OVERALL_ANNOTATION_SMALL',
+    'valid_info': '/home/appuser/datasets/OVERALL_ANNOTATION_SMALL/coco.json',
+                            
+    'class_names':('flesh_ripe','flesh_unripe'),
+    'label_map':  {0:1,1:2}
+
+})
+strawberry_dataset=dataset_base.copy({
+    'name': 'strawberry_base',
+    'class_names': ('ripe','unripe'),
+    'label_map': {0: 1, 1: 2}
+
+    })
+
+bag_610_dataset= strawberry_dataset.copy({
+    'name':'bag_610',
+    'train_images':'/datasets/610babd54e5e825f560b66b2',
+    'train_info':'/datasets/610babd54e5e825f560b66b2/coco.json',
+    'valid_images':'/datasets/OVERALL_ANNOTATION/',
+    'valid_info':'/datasets/OVERALL_ANNOTATION/coco.json',
+    # If using 3 class data then need to map pink to unripe
+    'label_map': {0: 1, 1: 2,2:2}
+
+    })
+overall_annotations_dataset = dataset_base.copy({
+    'name': 'overall_annotations_norway',
+
+    'train_images': '/datasets/OVERALL_ANNOTATION/',
+    'train_info': '/datasets/OVERALL_ANNOTATION/train_3cat.json',
+    'valid_images': '/datasets/OVERALL_ANNOTATION/',
+    'valid_info': '/datasets/OVERALL_ANNOTATION/test_3cat.json',
+    'has_gt': True,
+    'label_map': OVERALL_ANNOTATION_LABEL_MAP,
+    'class_names': OVERALL_ANNOTATION_CLASSES
+
+})
+
+overall_annotations_dataset_server = dataset_base.copy({
+        'name': 'overall_annotations_norway',
+        'train_images': '/datasets/OVERALL_ANNOTATION/',
+        'train_info': '/datasets/OVERALL_ANNOTATION/train_3cat.json',
+        'valid_images': '/datasets/OVERALL_ANNOTATION/',
+        'valid_info': '/datasets/OVERALL_ANNOTATION/test_3cat.json',
+                            
+        'class_names':('ripe','unripe','pink'),
+        'label_map':  {0:1,1:2,2:3}
+})
+
 
 coco2014_dataset = dataset_base.copy({
     'name': 'COCO 2014',
@@ -195,6 +249,15 @@ coco2017_testdev_dataset = dataset_base.copy({
 
     'label_map': COCO_LABEL_MAP
 })
+coco2017_testdev_dataset = dataset_base.copy({
+    'name': 'COCO 2017 Test-Dev',
+
+    'valid_info': './data/coco/annotations/image_info_test-dev2017.json',
+    'has_gt': False,
+
+    'label_map': COCO_LABEL_MAP
+})
+
 
 flying_chairs_dataset = dataset_base.copy({
     'name': 'FlyingChairs',
@@ -799,6 +862,58 @@ yolact_edge_config = yolact_base_config.copy({
     'use_fast_nms': False
 })
 
+
+bag_610_config= yolact_edge_config.copy({
+    'name': 'bag_610',
+    'dataset': bag_610_dataset,
+    'num_classes': len(bag_610_dataset.class_names) + 1
+})  
+
+
+
+overall_annotation_config_server = yolact_edge_config.copy({
+        'name': 'overall_annotation_server',
+
+        # Dataset stuff
+        'dataset': overall_annotations_dataset_server,
+        'num_classes': len(overall_annotations_dataset_server.class_names) + 1,
+        'class_names':('flesh_ripe','flesh_unripe'),
+        'label_map':  {0:1,1:2}
+})
+
+
+overall_annotation_config = yolact_edge_config.copy({
+    'name': 'overall_annotation',
+    'max_size':200,
+
+    # Dataset stuff
+    'dataset': overall_annotations_dataset,
+    'num_classes': len(overall_annotations_dataset.class_names) + 1,
+    'class_names':('flesh_ripe','flesh_unripe'),
+    'label_map':  {0:1,1:2}
+})
+
+debug_config=yolact_edge_config.copy({
+    'max_size': 32,
+    'freeze_bn': True,
+    'lr': 25e-5,
+    'dataset': debug_dataset,
+    'num_classes': len(debug_dataset.class_names) + 1
+
+
+})
+
+yolact_edge_config_test = yolact_base_config.copy({
+    'name': 'yolact_edge_test',
+    
+    'torch2trt_max_calibration_images': 100,
+    'torch2trt_backbone_int8': True,
+    'torch2trt_protonet_int8': True,
+    'torch2trt_fpn': True,
+    'torch2trt_prediction_module': True,
+    'use_fast_nms': False
+})
+
 yolact_edge_mobilenetv2_config = yolact_edge_config.copy({
     'name': 'yolact_edge_mobilenetv2',
 
@@ -950,7 +1065,7 @@ def set_cfg(config_name:str):
     # Note this is not just an eval because I'm lazy, but also because it can
     # be used like ssd300_config.copy({'max_size': 400}) for extreme fine-tuning
     cfg.replace(eval(config_name))
-
+ 
 def set_dataset(dataset_name:str):
     """ Sets the dataset of the current config. """
     cfg.dataset = eval(dataset_name)
