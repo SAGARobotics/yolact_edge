@@ -152,6 +152,40 @@ coco_cats = {} # Call prep_coco_cats to fill this
 coco_cats_inv = {}
 color_cache = defaultdict(lambda: {})
 
+
+
+from skimage import measure
+def binary_mask_to_polygon(binary_mask, tolerance=0):
+    """Converts a binary mask to COCO polygon representation
+    Args:
+    binary_mask: a 2D binary numpy array where '1's represent the object
+    tolerance: Maximum distance from original points of polygon to approximated
+    polygonal chain. If tolerance is 0, the original coordinate array is returned.
+    """
+    def close_contour(contour):
+        if not np.array_equal(contour[0], contour[-1]):
+            contour = np.vstack((contour, contour_[0]))
+        return contour
+
+    polygons = []
+    # pad mask to close contours of shapes which start and end at an edge
+    padded_binary_mask = np.pad(binary_mask, pad_width=1, mode='constant', constant_values=0)
+    contours = measure.find_contours(padded_binary_mask, 0.5)
+    contours = np.subtract(contours, 1)
+    for contour in contours:
+        contour = close_contour(contour)
+        contour = measure.approximate_polygon(contour, tolerance)
+        if len(contour) < 3:
+            continue
+        contour = np.flip(contour, axis=1)
+        segmentation = contour.ravel().tolist()
+        # after padding and subtracting 1 we may get -0.5 points in our segmentation
+        segmentation = [0 if i < 0 else i for i in segmentation]
+        polygons.append(segmentation)
+    return polygons
+
+
+
 def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, mask_alpha=0.45):
     """
     Note: If undo_transform=False then im_h and im_w are allowed to be None.
@@ -172,7 +206,12 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     with timer.env('Copy'):
         if cfg.eval_mask_branch:
             # Masks are drawn on the GPU, so don't copy
-            masks = t[3][:args.top_k]
+
+            # transform each mask to polygon here
+            # for mask in masks:
+            #     polygon = binary_mask_to_polygon(mask.cpu())
+
+        # corresponding classes, scores and bboxes are in the below lists:
         classes, scores, boxes = [x[:args.top_k].cpu().numpy() for x in t[:3]]
 
     num_dets_to_consider = min(args.top_k, classes.shape[0])
@@ -187,6 +226,8 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
 
     # Quick and dirty lambda for selecting the color for a particular index
     # Also keeps track of a per-gpu color cache for maximum speed
+
+
     def get_color(j, on_gpu=None):
         global color_cache
         color_idx = (classes[j] * 5 if class_color else j * 5) % len(COLORS)
@@ -209,6 +250,8 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     if args.display_masks and cfg.eval_mask_branch:
         # After this, mask is of size [num_dets, h, w, 1]
         masks = masks[:num_dets_to_consider, :, :, None]
+
+        print(masks.shape)
         
         # Prepare the RGB images for each mask given their color (size [num_dets, h, w, 1])
         colors = torch.cat([get_color(j, on_gpu=img_gpu.device.index).view(1, 1, 1, 3) for j in range(num_dets_to_consider)], dim=0)
@@ -216,6 +259,8 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
 
         # This is 1 everywhere except for 1-mask_alpha where the mask is
         inv_alph_masks = masks * (-mask_alpha) + 1
+
+        print(inv_alph_masks.shape)
         
         # I did the math for this on pen and paper. This whole block should be equivalent to:
         #    for j in range(num_dets_to_consider):
@@ -227,6 +272,10 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
             masks_color_summand += masks_color_cumul.sum(dim=0)
 
         img_gpu = img_gpu * inv_alph_masks.prod(dim=0) + masks_color_summand
+
+        print(masks_color_summand.shape)
+    
+        quit()
         
     # Then draw the stuff that needs to be done on the cpu
     # Note, make sure this is a uint8 tensor or opencv will not anti alias text for whatever reason
@@ -597,6 +646,9 @@ def evalimage(net:Yolact, path:str, save_path:str=None, detections:Detections=No
     preds = net(batch, extras=extras)["pred_outs"]
 
     img_numpy = prep_display(preds, frame, None, None, undo_transform=False)
+
+    for pred in preds:
+        print(pred)
 
     if args.output_coco_json:
         with timer.env('Postprocess'):
