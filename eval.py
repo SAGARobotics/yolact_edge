@@ -185,8 +185,9 @@ def binary_mask_to_polygon(binary_mask, tolerance=0):
     return polygons
 
 
+output_json_predictions = {'annotations': []}
 
-def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, mask_alpha=0.45):
+def prep_display(img_filename, dets_out, img, h, w, undo_transform=True, class_color=False, mask_alpha=0.45):
     """
     Note: If undo_transform=False then im_h and im_w are allowed to be None.
     """
@@ -203,17 +204,35 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
                                         score_threshold   = args.score_threshold)
         torch.cuda.synchronize()
 
+    tmp = []
     with timer.env('Copy'):
         if cfg.eval_mask_branch:
             # Masks are drawn on the GPU, so don't copy
 
+            masks = t[3][:args.top_k]
+
             # transform each mask to polygon here
-            # for mask in masks:
-            #     polygon = binary_mask_to_polygon(mask.cpu())
+            for mask in masks:
+                polygon = binary_mask_to_polygon(mask.cpu())
+                tmp.append(
+                    {
+                        'image': img_filename,
+                        'segmentation': polygon
+                    }
+                )
 
         # corresponding classes, scores and bboxes are in the below lists:
         classes, scores, boxes = [x[:args.top_k].cpu().numpy() for x in t[:3]]
+        idx = 0
+        for class_, score in zip(classes, scores):
+            tmp[idx]['confidence'] = float(score)
+            tmp[idx]['category_id'] = int(class_)
+            idx += 1
 
+
+    for anno in tmp:
+        output_json_predictions['annotations'].append(anno)
+    
     num_dets_to_consider = min(args.top_k, classes.shape[0])
     for j in range(num_dets_to_consider):
         if scores[j] < args.score_threshold:
@@ -272,10 +291,6 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
             masks_color_summand += masks_color_cumul.sum(dim=0)
 
         img_gpu = img_gpu * inv_alph_masks.prod(dim=0) + masks_color_summand
-
-        print(masks_color_summand.shape)
-    
-        quit()
         
     # Then draw the stuff that needs to be done on the cpu
     # Note, make sure this is a uint8 tensor or opencv will not anti alias text for whatever reason
@@ -645,10 +660,9 @@ def evalimage(net:Yolact, path:str, save_path:str=None, detections:Detections=No
 
     preds = net(batch, extras=extras)["pred_outs"]
 
-    img_numpy = prep_display(preds, frame, None, None, undo_transform=False)
+    im_name = path.split('/')[-1]
 
-    for pred in preds:
-        print(pred)
+    img_numpy = prep_display(im_name, preds, frame, None, None, undo_transform=False)
 
     if args.output_coco_json:
         with timer.env('Postprocess'):
@@ -679,7 +693,7 @@ def evalimages(net:Yolact, input_folder:str, output_folder:str, detections:Detec
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
 
-    print()
+    input_folder= '/data/test_images/'
     for i, p in enumerate(Path(input_folder).glob('*')):
         path = str(p)
         name = os.path.basename(path)
@@ -877,6 +891,10 @@ def evalvideo(net:Yolact, path:str):
     cleanup_and_exit()
 
 def savevideo(net:Yolact, in_path:str, out_path:str):
+
+    print('iii', in_path)
+
+    # quit()
 
     vid = cv2.VideoCapture(in_path)
 
@@ -1356,4 +1374,11 @@ if __name__ == '__main__':
 
         evaluate(net, dataset)
 
+
+
+
+import json
+with open('./result_yolact.json', 'w') as fp:
+    json.dump(output_json_predictions, fp)
+    print('done json')
 
