@@ -170,6 +170,18 @@ dataset_base = Config({
     # Joint training
     'joint': None
 })
+
+bag_6168_dataset = dataset_base.copy({
+    'name': '6168_bag_dataset',
+    'has_gt': False,
+    'calib_images': '/datasets/data_collection/616800e44e5e826889b3f5dd/calibration_images',
+    'valid_images': '/datasets/data_collection/6168_test',
+    'valid_info': '/datasets/data_collection/blank.json',
+    'class_names':('flesh_ripe','flesh_unripe'),
+    'label_map':  {0:1,1:2}
+})
+
+
 debug_dataset = dataset_base.copy({
     'name':'debug_dataset',
     'train_images': '/home/appuser/datasets/OVERALL_ANNOTATION_SMALL',
@@ -197,6 +209,18 @@ bag_610_dataset= strawberry_dataset.copy({
 
     # If using 3 class data then need to map pink to unripe
     'label_map': {0: 1, 1: 2,2:2}
+
+    })
+bag_60f9_dataset= strawberry_dataset.copy({
+    'name':'bag_60f9',
+    'train_images':'/datasets/data_collection/2021-07-22_60f949a34e5e82785cccabc9/data',
+    'train_info':'/datasets/data_collection/2021-07-22_60f949a34e5e82785cccabc9/ground_truth_coco.json',
+    'valid_images':'datasets/data_collection/2021-08-05_610babd54e5e825f560b66b2',
+    'valid_info':'/datasets/data_collection/2021-08-05_610babd54e5e825f560b66b2/labels.json',
+    'class_names': ('ripe','unripe','ripening'),
+
+    # If using 3 class data then need to map pink to unripe
+    'label_map': {0: 1, 1: 2, 2:3}
 
     })
 overall_annotations_dataset = dataset_base.copy({
@@ -242,14 +266,6 @@ coco2017_dataset = dataset_base.copy({
     'label_map': COCO_LABEL_MAP
 })
 
-coco2017_testdev_dataset = dataset_base.copy({
-    'name': 'COCO 2017 Test-Dev',
-
-    'valid_info': './data/coco/annotations/image_info_test-dev2017.json',
-    'has_gt': False,
-
-    'label_map': COCO_LABEL_MAP
-})
 coco2017_testdev_dataset = dataset_base.copy({
     'name': 'COCO 2017 Test-Dev',
 
@@ -869,8 +885,11 @@ bag_610_config= yolact_edge_config.copy({
     'dataset': bag_610_dataset,
     'num_classes': len(bag_610_dataset.class_names) + 1
 })  
-
-
+bag_60f9_config= yolact_edge_config.copy({
+    'name': 'bag_60f9',
+    'dataset': bag_60f9_dataset,
+    'num_classes': len(bag_60f9_dataset.class_names) + 1
+})  
 
 overall_annotation_config_server = yolact_edge_config.copy({
         'name': 'overall_annotation_server',
